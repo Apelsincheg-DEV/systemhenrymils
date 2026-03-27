@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>SFCE Terminal</title>
+
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  background: #000;
+  color: #00ff41;
+  font-family: 'VT323', monospace;
+  overflow: hidden;
+}
+
+/* CRT */
+body::after {
+  content: "";
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.03) 0px,
+    rgba(255,255,255,0.03) 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+}
+
+/* КРАСНЫЕ ГЛЮКИ */
+.glitch {
+  animation: glitch 0.2s infinite;
+}
+
+@keyframes glitch {
+  0% { filter: none; }
+  20% { filter: hue-rotate(90deg); }
+  40% { filter: contrast(200%) brightness(150%) hue-rotate(0deg); }
+  60% { filter: invert(1) hue-rotate(180deg); }
+  80% { filter: brightness(200%); }
+  100% { filter: none; }
+}
+
+.container { padding: 20px; }
+
+.title {
+  text-align: center;
+  font-size: 40px;
+  margin-bottom: 20px;
+}
+
+.command {
+  cursor: pointer;
+  margin: 10px 0;
+  transition: 0.2s;
+}
+
+.command:hover {
+  text-shadow: 0 0 10px #00ff41;
+  text-decoration: underline;
+}
+
+.errors {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 300px;
+  border: 1px solid #00ff41;
+  padding: 10px;
+}
+
+.error { color: orange; }
+
+.log {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  max-height: 120px;
+  overflow: hidden;
+  border-top: 1px solid #00ff41;
+  padding: 10px;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #00ff41;
+  padding: 20px;
+  background: black;
+  display: none;
+}
+
+.progress {
+  width: 300px;
+  height: 20px;
+  border: 1px solid #00ff41;
+  margin-top: 10px;
+}
+
+.bar {
+  height: 100%;
+  background: #00ff41;
+  width: 0%;
+}
+
+.spinner {
+  border: 4px solid #003;
+  border-top: 4px solid #00ff41;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.clear {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  cursor: pointer;
+}
+
+.critical {
+  position: absolute;
+  bottom: 150px;
+  right: 20px;
+  background: red;
+  color: white;
+  padding: 10px;
+  display: none;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body id="body">
+
+<div class="clear" onclick="clearScreen()">CLEAR SCREEN</div>
+
+<div class="container">
+  <div class="title">Создатель системы SFCE Генри Милс _</div>
+
+  <div class="command" onclick="run('reboot')">> Перезагрузка Системы</div>
+  <div class="command" onclick="run('check')">> Проверка системы</div>
+  <div class="command" onclick="run('vent')">> Вентиляция</div>
+  <div class="command" onclick="run('power')">> Отключение питания</div>
+</div>
+
+<div class="errors" id="errors">
+  ЖУРНАЛ ОШИБОК [ACTIVE]
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="modal" id="modal">
+  <div id="modalText"></div>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+</div>
+
+<div class="critical" id="critical" onclick="emergency()">
+  АВАРИЙНАЯ ПЕРЕЗАГРУЗКА
+</div>
+
+<script>
+let errors = [];
+let log = document.getElementById("log");
+let errorBox = document.getElementById("errors");
+let body = document.getElementById("body");
+
+function addLog(text){
+  let t = new Date().toLocaleTimeString();
+  log.innerHTML += `[${t}] ${text}<br>`;
+}
+
+function updateErrors(){
+  errorBox.innerHTML = "ЖУРНАЛ ОШИБОК [ACTIVE]<br>";
+  errors.forEach(e=>{
+    errorBox.innerHTML += `<div class="error">${e}</div>`;
+  });
+
+  // ВКЛЮЧАЕМ ГЛЮКИ если много ошибок
+  if(errors.length >= 3){
+    body.classList.add("glitch");
+    document.getElementById("critical").style.display="block";
+  } else {
+    body.classList.remove("glitch");
+    document.getElementById("critical").style.display="none";
+  }
+}
+
+function addError(){
+  const list = [
+    "Ошибка вентиляции",
+    "Error 34: требуется перезагрузка",
+    "Перегрев процессора",
+    "Низкий уровень питания"
+  ];
+  let e = list[Math.floor(Math.random()*list.length)];
+  errors.push(e);
+  updateErrors();
+}
+
+// РАНДОМНЫЙ ИНТЕРВАЛ (5–20 сек)
+function randomErrorLoop(){
+  let delay = Math.random() * 15000 + 5000;
+  setTimeout(()=>{
+    addError();
+    randomErrorLoop();
+  }, delay);
+}
+randomErrorLoop();
+
+function run(cmd){
+  let modal = document.getElementById("modal");
+  let bar = document.getElementById("bar");
+  let text = document.getElementById("modalText");
+
+  modal.style.display="block";
+  bar.style.width="0%";
+
+  text.innerHTML="[EXECUTING...]";
+
+  let progress=0;
+  let interval=setInterval(()=>{
+    progress+=1;
+    bar.style.width=progress+"%";
+
+    if(progress>=100){
+      clearInterval(interval);
+      modal.style.display="none";
+      process(cmd);
+    }
+  },100);
+}
+
+function process(cmd){
+  addLog("COMMAND EXECUTED: "+cmd);
+
+  if(cmd==="vent"){
+    errors = errors.filter(e=>!e.includes("вентиляции") && !e.includes("Перегрев"));
+  }
+  if(cmd==="reboot"){
+    errors = errors.filter(e=>!e.includes("34"));
+  }
+  if(cmd==="power"){
+    errors = errors.filter(e=>!e.includes("питания"));
+  }
+
+  updateErrors();
+}
+
+function clearScreen(){
+  log.innerHTML="";
+}
+
+function emergency(){
+  if(errors.length>0){
+    errors=[];
+    updateErrors();
+    addLog("EMERGENCY REBOOT SUCCESS");
+  } else {
+    addLog("Сейчас нету критической ошибки");
+  }
+}
+</script>
+
+</body>
+</html>
